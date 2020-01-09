@@ -1,0 +1,204 @@
+---
+title: "Maximizing Success and Streamlining Design of A/B Tests using R"
+author: "Ncpeifer"
+date: "01/06/2019"
+output: html_document
+---
+
+## Introduction
+
+A/B testing is a common form of hypothesis testing used in marketing to compare two or more versions of a single variable. Recently, I have been working with a large retailer who is employing A/B testing to compare the efficacy of different email campaigns to bring existing customers back for follow-up purchases. The goal of the group is to test quickly and strategically, making each campaign as personalized as possible to it's core audience. For example, we may want to target Men's shoppers who bought a suit in the last 3 months and compare an offer for tailoring services against a discount on dress shoes. We need to put this test into market quickly because the holiday season is fast approaching, and we have a backlog of additional test ideas lined up as soon as this one is done. 
+
+We assembled an agile team of marketing strategists, operations experts and data scientists (including myself). While the marketing strategists are ideating on creative content and the desired target audience, my main objective as a data scientist is to assess whether or not the anticipated design has a good chance of yielding a detectible difference between A and B. If the current design is unlikely to yield a result, the whole team needs to quickly pivot to a different design and the assessment will begin again. 
+
+## Problem
+
+A number of factors make this test design phase a complicated task for the data scientist:
+
+**1.** Each test is designed for customers who exhibit very specific behaviors, so we are constantly dealing with **small audience sizes**
+
+**2.** With highly personalized tests, there is a **large variability in baseline response rates and the anticipated lift** of each test
+
+**3.** Some tests carry additional costs of implementation (e.g. promotions or gift cards) which means we need to **vary the test and control group split**
+
+**4.** The agile framework is designed to launch three tests per week, meaning **rapid test design sprints** 
+
+Many great resources are available for determining the audience size or effect size needed given specific input values (for example: https://www.evanmiller.org/ab-testing/sample-size.html). But plugging in 30 combinations of inputs into these calculators and comparing results is cumbersome at best and severly hinders the design process.
+
+## Solution
+
+To help streamline test design, we came up with a way to see how big of a difference in response rate between A and B we would need to see to confidently confirm or reject a test hypothesis **under any number of input scenarios**. 
+
+### Set up
+
+Our goal is to take varying design inputs into consideration and return a range of possible execution options for the team to choose from during ideation. The main inputs we needed to incorporate into the assessment are: 
+
+**1. Audience size** - The number of customers who qualify for the test
+
+**2. Test proportion** - The split between Test and Control customers (Test receives A content, control receives B)
+
+**3. Baseline response** - The expected rate at which customers normally come back in and shop, measured as a probability between 0 and 1
+
+The resulting assessment should quantify the difference between A and B needed in order to confirm or reject a test hypothesis.
+
+### Execution
+
+Say we want to promote a new tailoring service in our store. We define a general hypothesis that a 15% off promotion for services will cause more customers to use the tailoring service than a purely informational email promoting the service. The test group will get the 15% off promotion while the control will get a standard email informing them about tailoring. 
+
+#### Define the inputs
+
+##### Audience Size
+
+Our ideal target audience is the 10,000 customers who bought a suit as their only purchase in the past year. If needed, we could loosen our criteria to include the additional 10,000 customers who bought a suit and shoes in the past year, or even the additional 55,000 customers who bought dress shirts but did not buy a suit. So for our assessment, we'll look at audience sizes ranging from 10k to 75k. 
+
+##### Test Proportion
+
+The test campaign includes a 15% off promotion which decreases profit margin, so we favor an unbalanced test to minimize the number of customers receiving the test promotional content as much as possible. For our assessment we'll look at a full range of splits: 10/90, 20/80, 30/70, 40/60, and 50/50. 
+
+##### Baseline Response
+
+Finally, we know the general baseline response rate is 12% for existing shoppers to use similar services. While we know that promotions generally increase response rates by 1-3 percentage points, we want to be conservative with this test because the tailoring service is new, so we'll leave this constant at 12%. 
+
+#### Define the functions
+
+##### Effect size calculation
+
+The first function uses a two proportion, unbalanced calculation from the [pwr] package in R to return the effect size needed to detect statistical significance. We use a two proportion test because our response variable is a probability between 0 and 1. We use an unbalanced sample because we want to see different test and control sample sizes (i.e. not limited to a 50/50 split). Note that we're using a power of 80%. Because the cost of sending an email is negligible, we can afford to have more wiggle room for error than the standard 90% or 95% thresholds.
+
+```{r setup, message=FALSE}
+library(plotly)
+library(ggplot2)
+library(pwr)
+library(tidyverse)
+library(kableExtra)
+
+unbalanced <- function(x,y) {
+  pwr.2p2n.test(h = NULL, 
+                n1 = x*y,
+                n2 = x*(1-y),
+                sig.level = 0.2, 
+                power = .80, 
+                alternative = "greater")
+}
+```
+
+The second function solves the effect size formula for the required test response rate needed to confirm or reject our hypothesis. We use *Cohen's h* formula for effect size since we're comparing differences between two proportions (https://en.wikipedia.org/wiki/Cohen%27s_h). 
+
+``` {r}
+# Effect size formula: h = 2*asin(sqrt(p2))-2*asin(sqrt(p1))
+# Solving for test response rate (p2) gives: sin((h + 2*asin(sqrt(p1)))/2)^2
+p2.response <- function(h,p1) {
+  sin((h + 2*asin(sqrt(p1)))/2)^2
+}
+```
+
+#### Set the input parameters
+
+```{r}
+# Adjust these based on test design
+audience_size <- c(10000,20000,75000)
+test_proportion <- c(0.1,0.2,0.3,0.4,0.5)
+baseline_rate = c(0.12)
+```
+
+#### Create a data set with all possible test designs
+
+```{r}
+setup <- tibble(audience_size) %>%
+    merge(tibble(test_proportion)) %>%
+    merge(tibble(baseline_rate))
+```
+
+#### Apply the effect size calculations to each row of the dataset
+
+```{r}
+calculations <- setup %>%
+    mutate(h_power = pmap(list(audience_size, test_proportion), unbalanced)) %>%
+    mutate(effect_size = unlist(map(h_power,"h")),
+           test_n = unlist(map(h_power, "n1")),
+           control_n = unlist(map(h_power, "n2")),
+           total_n = test_n + control_n,
+           test_rate = unlist(map2(effect_size,baseline_rate,p2.response)),
+           lift_needed = (test_rate - baseline_rate) / baseline_rate) %>%
+    select(-h_power)
+
+calculations %>%
+  kable() %>%
+  kable_styling(bootstrap_options = "striped", full_width = F)
+```
+
+Now we have a clean table showing the test audience size (test_n), along with the percentage lift over the baseline response rate needed in order to confirm or reject the hypothesis. This is technically all the info we need, but no one likes to read a boring old table...
+
+#### Create an interactive plot for all possible designs
+
+Using [ggplot] and [plotly] visualization packages, we can create a nice illustration of all the test options with interactivity to let us hover over different options to see all the pertinent detials. 
+
+```{r}
+lift_plot <- ggplot(data = calculations %>%
+           mutate(text = paste("Audience Size: ", audience_size, "\nTest Proportion: ",  test_proportion,  
+                               "\nTest Audience: ", test_n, "\nControl Audience: ",  control_n, 
+                               "\nBaseline Response: ", baseline_rate, "\nResponse Rate Needed: ", round(test_rate,4),
+                               "\nLift Needed: ", round(lift_needed,4), sep="")), 
+         aes(x = as.factor(audience_size), text = text)) + 
+    geom_line(mapping = aes(y = lift_needed, group = as.factor(test_proportion), color = as.factor(test_proportion))) + 
+    geom_point(aes(y = lift_needed, group = as.factor(test_proportion), color = as.factor(test_proportion))) +
+    xlab("Total Audience Size") + 
+    ylab("Lift Needed") +
+    labs(color = "Test Proportion")
+
+plotly_lift_plot <- ggplotly(lift_plot, tooltip="text")
+
+plotly_lift_plot
+```
+
+## Results
+
+In the graph above, we can quickly see the pros and cons of each design option. Using the 10,000 suit-only shoppers, our campaign would need to drive at least a 9% lift with a 50/50 test and control split. That type of lift is unlikely given our knowledge of past campaigns, and because of the promotional offer we would much rather limit the test recipients to less than 50% of the audience. Because of that, we might suggest relaxing the audience criteria to include the additional 65,000 suit + shoes and dress shirt shoppers to reach a 75,000 audience size with a 20/80 test and control split, where we need a much more reasonable 5% lift to confirm or reject the hypothesis. 
+
+The beauty of this approach is the speed and ease of calculations across a number of scenarios. Now the marketing strategist can quickly *rule out doomed test designs* and hone in on the right parameters to *maximize the chances of a successful test*. 
+
+
+## Let's go a bit further
+
+We have just looked at an example using specific audience sizes based on three initial sets of criteria. But what if we go a step further and see how the required lift changes across a broad range of audience sizes and varying baseline rates? We can adjust the inputs and see. Note for this exercise we'll hold the test proportion constant at a 50/50 split.
+
+```{r}
+audience_size <- c(seq(from = 1000, to = 100000, by = 5000))
+test_proportion <- c(0.5)
+baseline_rate = c(0.05, 0.1, 0.15)
+
+setup2 <- tibble(audience_size) %>%
+    merge(tibble(test_proportion)) %>%
+    merge(tibble(baseline_rate))
+
+calculations2 <- setup2 %>%
+    mutate(h_power = pmap(list(audience_size, test_proportion), unbalanced)) %>%
+    mutate(effect_size = unlist(map(h_power,"h")),
+           test_n = unlist(map(h_power, "n1")),
+           control_n = unlist(map(h_power, "n2")),
+           total_n = test_n + control_n,
+           test_rate = unlist(map2(effect_size,baseline_rate,p2.response)),
+           lift_needed = (test_rate - baseline_rate) / baseline_rate) %>%
+    select(-h_power)
+options(scipen = 99)
+lift_plot2 <- ggplot(data = calculations2 %>%
+           mutate(text = paste("Audience Size: ", audience_size, "\nTest Proportion: ",  test_proportion,  
+                               "\nTest Audience: ", test_n, "\nControl Audience: ",  control_n, 
+                               "\nBaseline Response: ", baseline_rate, "\nResponse Rate Needed: ", round(test_rate,4),
+                               "\nLift Needed: ", round(lift_needed,4), sep="")), 
+         aes(x = audience_size, text = text)) + 
+    geom_line(mapping = aes(y = lift_needed, group = as.factor(baseline_rate), color = as.factor(baseline_rate))) + 
+    geom_point(aes(y = lift_needed, group = as.factor(baseline_rate), color = as.factor(baseline_rate))) +
+#    xlab("Total Audience Size") + 
+    scale_x_continuous(name = "Total Audience Size", breaks=seq(0,100000,10000)) +
+    ylab("Lift Needed") +
+    labs(color = "Baseline Rates")
+plotly_lift_plot2 <- ggplotly(lift_plot2, tooltip="text")
+plotly_lift_plot2
+
+```
+
+### Interpretation
+
+As expected, the smaller the baseline rate, the higher the amount of lift you would need to see to detect a difference. What's interesting for the marketing strategist is the non-linear relationship between audience size and lift required. This relationship is important to consider when designing extremely personalized campaigns targeting small audiences. For example, with a baseline response rate of 10% and an audience of 1,000 customers, you would need to see at least a 34% lift to confirm your hypothesis. However, increasing that audience by 5,000 customers reduces the lift needed to 13%. With the same 10% baseline and 20,000 customers in your audience, you would need a 7% lift and the benefit of an additional 5,000 customers is a relatively small difference of 0.7 percentage points. 
+
