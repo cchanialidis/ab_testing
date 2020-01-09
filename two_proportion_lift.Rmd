@@ -201,5 +201,3 @@ plotly_lift_plot2
 ### Interpretation
 
 As expected, the smaller the baseline rate, the higher the amount of lift you would need to see to detect a difference. What's interesting for the marketing strategist is the non-linear relationship between audience size and lift required. This relationship is important to consider when designing extremely personalized campaigns targeting small audiences. For example, with a baseline response rate of 10% and an audience of 1,000 customers, you would need to see at least a 34% lift to confirm your hypothesis. However, increasing that audience by 5,000 customers reduces the lift needed to 13%. With the same 10% baseline and 20,000 customers in your audience, you would need a 7% lift and the benefit of an additional 5,000 customers is a relatively small difference of 0.7 percentage points. 
-
-test
