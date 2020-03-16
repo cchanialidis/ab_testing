@@ -1,15 +1,19 @@
 ---
-title: "Maximizing Success and Streamlining Design of A/B Tests using R"
+title: "Streamlining Design and Maximizing Success for Agile Test and Learn"
 author: "Ncpeifer"
-date: "01/06/2019"
+date: "03/13/2019"
 output: html_document
 ---
 
+## Abstract
+
+Test and learn analysis is used widely throughout industry as a way to quantitatively understand the preferences of a retailer’s customer base. Successful testing requires accurate assumptions (response rates, anticipated difference between variants) along with finely tuned execution parameters (audience size, test / control split, test iterations and timing). The test design phase is arguably the most critical and requires timely collaboration between marketing strategists, statisticians, data analysts and operations experts to agree on the right parameters for a successful test execution. Through our work with large retailers, we have come up with an approach to significantly accelerate the test and learn design phase, using a set of functions developed using R statistical software. Our approach increases the speed and ease of effect size calculations across any number of scenarios, allowing marketing strategists to quickly rule out doomed test designs and hone in on the right parameters to maximize the chances of a successful test.
+
 ## Introduction
 
-A/B testing is a common form of hypothesis testing used in marketing to compare two or more versions of a single variable. Recently, I have been working with a large retailer who is employing A/B testing to compare the efficacy of different email campaigns to bring existing customers back for follow-up purchases. The goal of the group is to test quickly and strategically, making each campaign as personalized as possible to it's core audience. For example, we may want to target Men's shoppers who bought a suit in the last 3 months and compare an offer for tailoring services against a discount on dress shoes. We need to put this test into market quickly because the holiday season is fast approaching, and we have a backlog of additional test ideas lined up as soon as this one is done. 
+Formally speaking, A/B testing is used compare two or more versions of a single variable. A recent engagement with a large retailer lead our team to employ A/B testing to compare the effectiveness of different email campaigns at bringing existing customers back for follow-up purchases. The goal of the group is to test quickly and strategically, making each campaign as personalized as possible to it's core audience. For example, we may want to target Men's shoppers who bought a suit in the last 3 months and compare an offer for tailoring services against a discount on dress shoes. We need to put this test into market quickly because the holiday season is fast approaching, and we have a backlog of additional test ideas lined up as soon as this one is done. 
 
-We assembled an agile team of marketing strategists, operations experts and data scientists (including myself). While the marketing strategists are ideating on creative content and the desired target audience, my main objective as a data scientist is to assess whether or not the anticipated design has a good chance of yielding a detectible difference between A and B. If the current design is unlikely to yield a result, the whole team needs to quickly pivot to a different design and the assessment will begin again. 
+To get this done, we assembled an agile team of marketing strategists, operations experts and data scientists. While the marketing strategists are ideating on creative content and the desired target audience, the objective of the data scientist is to assess whether or not the anticipated design has a good chance of yielding a detectible difference between A and B. If the current design is unlikely to yield a result, the whole team needs to quickly pivot to a different design and the assessment will begin again. 
 
 ## Problem
 
@@ -39,7 +43,7 @@ Our goal is to take varying design inputs into consideration and return a range 
 
 **3. Baseline response** - The expected rate at which customers normally come back in and shop, measured as a probability between 0 and 1
 
-The resulting assessment should quantify the difference between A and B needed in order to confirm or reject a test hypothesis.
+The resulting assessment should quantify the difference between A and B needed in order to confirm or reject a test hypothesis. 
 
 ### Execution
 
@@ -63,7 +67,9 @@ Finally, we know the general baseline response rate is 12% for existing shoppers
 
 ##### Effect size calculation
 
-The first function uses a two proportion, unbalanced calculation from the [pwr] package in R to return the effect size needed to detect statistical significance. We use a two proportion test because our response variable is a probability between 0 and 1. We use an unbalanced sample because we want to see different test and control sample sizes (i.e. not limited to a 50/50 split). Note that we're using a power of 80%. Because the cost of sending an email is negligible, we can afford to have more wiggle room for error than the standard 90% or 95% thresholds.
+The first function uses a two proportion, unbalanced calculation from the [pwr] package in R to return the effect size needed to detect statistical significance. We use a two proportion test because our response variable is a probability between 0 and 1. We use an unbalanced sample because we want to see different test and control sample sizes (i.e. not limited to a 50/50 split). Note that we're using a power of 80%. Because the cost of sending an email is negligible, we can afford to have more wiggle room for error than the standard 90% or 95% thresholds. 
+
+[Note that this approach accommadates variability in the primary effect size parameters of audience size, test proportion, and baseline response rate and is built for two-proportion, unbalanced tests. Other test types, such as comparison of a continous outcome, have not been explored here, but could be accommodated within the same framework.]
 
 ```{r setup, message=FALSE}
 library(plotly)
@@ -153,10 +159,7 @@ plotly_lift_plot
 
 ## Results
 
-In the graph above, we can quickly see the pros and cons of each design option. Using the 10,000 suit-only shoppers, our campaign would need to drive at least a 9% lift with a 50/50 test and control split. That type of lift is unlikely given our knowledge of past campaigns, and because of the promotional offer we would much rather limit the test recipients to less than 50% of the audience. Because of that, we might suggest relaxing the audience criteria to include the additional 65,000 suit + shoes and dress shirt shoppers to reach a 75,000 audience size with a 20/80 test and control split, where we need a much more reasonable 5% lift to confirm or reject the hypothesis. 
-
-The beauty of this approach is the speed and ease of calculations across a number of scenarios. Now the marketing strategist can quickly *rule out doomed test designs* and hone in on the right parameters to *maximize the chances of a successful test*. 
-
+Looking at the resulting plot, we can quickly see the pros and cons of each design option. Using the 10,000 suit-only shoppers, our campaign would need to drive at least a 9% lift with a 50/50 test and control split. That type of lift is unlikely given our knowledge of past campaigns, and because of the promotional offer we would much rather limit the test recipients to less than 50% of the audience. Because of that, we might suggest relaxing the audience criteria to include the additional 65,000 suit + shoes and dress shirt shoppers to reach a 75,000 audience size with a 20/80 test and control split, where we need a much more reasonable 5% lift to confirm or reject the hypothesis. 
 
 ## Let's go a bit further
 
@@ -201,3 +204,9 @@ plotly_lift_plot2
 ### Interpretation
 
 As expected, the smaller the baseline rate, the higher the amount of lift you would need to see to detect a difference. What's interesting for the marketing strategist is the non-linear relationship between audience size and lift required. This relationship is important to consider when designing extremely personalized campaigns targeting small audiences. For example, with a baseline response rate of 10% and an audience of 1,000 customers, you would need to see at least a 34% lift to confirm your hypothesis. However, increasing that audience by 5,000 customers reduces the lift needed to 13%. With the same 10% baseline and 20,000 customers in your audience, you would need a 7% lift and the benefit of an additional 5,000 customers is a relatively small difference of 0.7 percentage points. 
+
+## Conclusion
+
+We have developed an approach for A/B test design that accelerates sample and effect size calculations across any number of design scenarios and provides an interactive visual of all possible designs. This approach greatly increased the speed at which our test and learn team can *rule out doomed test designs* and hone in on the right parameters to *maximize the chances of a successful test*. 
+
+
