@@ -118,6 +118,9 @@ setup <- tibble(audience_size) %>%
 #### Apply the effect size calculations to each row of the dataset
 
 ```{r}
+Sys.setenv("plotly_username"="ncpeifer")
+Sys.setenv("plotly_api_key"="ooSWEvq5vnknc1Br8TF7")
+
 calculations <- setup %>%
     mutate(h_power = pmap(list(audience_size, test_proportion), unbalanced)) %>%
     mutate(effect_size = unlist(map(h_power,"h")),
@@ -131,6 +134,8 @@ calculations <- setup %>%
 calculations %>%
   kable() %>%
   kable_styling(bootstrap_options = "striped", full_width = F)
+
+api_create(calculations, filename = "r-docs-ab-lift-data")
 ```
 
 Now we have a clean table showing the test audience size (test_n), along with the percentage lift over the baseline response rate needed in order to confirm or reject the hypothesis. This is technically all the info we need, but no one likes to read a boring old table...
@@ -155,6 +160,12 @@ lift_plot <- ggplot(data = calculations %>%
 plotly_lift_plot <- ggplotly(lift_plot, tooltip="text")
 
 plotly_lift_plot
+
+api_create(plotly_lift_plot, filename = "r-docs-ab-lift-plot")
+
+import chart_studio.tools as tls
+tls.get_embed('https://plot.ly/~elizabethts/9/') #change to your url
+
 ```
 
 ## Results
@@ -192,13 +203,13 @@ lift_plot2 <- ggplot(data = calculations2 %>%
          aes(x = audience_size, text = text)) + 
     geom_line(mapping = aes(y = lift_needed, group = as.factor(baseline_rate), color = as.factor(baseline_rate))) + 
     geom_point(aes(y = lift_needed, group = as.factor(baseline_rate), color = as.factor(baseline_rate))) +
-#    xlab("Total Audience Size") + 
     scale_x_continuous(name = "Total Audience Size", breaks=seq(0,100000,10000)) +
     ylab("Lift Needed") +
     labs(color = "Baseline Rates")
 plotly_lift_plot2 <- ggplotly(lift_plot2, tooltip="text")
 plotly_lift_plot2
 
+api_create(plotly_lift_plot2, filename = "r-docs-ab-lift-plot-2")
 ```
 
 ### Interpretation
