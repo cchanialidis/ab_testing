@@ -75,6 +75,7 @@ The first function uses a two proportion, unbalanced calculation from the [pwr] 
 library(plotly)
 library(ggplot2)
 library(pwr)
+library(scales)
 library(tidyverse)
 library(kableExtra)
 
@@ -135,7 +136,7 @@ calculations %>%
   kable() %>%
   kable_styling(bootstrap_options = "striped", full_width = F)
 
-api_create(calculations, filename = "r-docs-ab-lift-data")
+# api_create(calculations, filename = "r-docs-ab-lift-data")
 ```
 
 Now we have a clean table showing the test audience size (test_n), along with the percentage lift over the baseline response rate needed in order to confirm or reject the hypothesis. This is technically all the info we need, but no one likes to read a boring old table...
@@ -146,25 +147,29 @@ Using [ggplot] and [plotly] visualization packages, we can create a nice illustr
 
 ```{r}
 lift_plot <- ggplot(data = calculations %>%
-           mutate(text = paste("Audience Size: ", audience_size, "\nTest Proportion: ",  test_proportion,  
-                               "\nTest Audience: ", test_n, "\nControl Audience: ",  control_n, 
-                               "\nBaseline Response: ", baseline_rate, "\nResponse Rate Needed: ", round(test_rate,4),
-                               "\nLift Needed: ", round(lift_needed,4), sep="")), 
+           mutate(text = paste("Audience Size: ", comma(audience_size), 
+                               "\nTest Proportion: ",  test_proportion,  
+                               "\nTest Audience: ", comma(test_n), 
+                               "\nControl Audience: ",  comma(control_n), 
+                               "\nBaseline Response: ", percent(round(baseline_rate,2)), 
+                               "\nResponse Rate Needed: ", percent(round(test_rate,2)),
+                               "\nLift Needed: ", percent(round(lift_needed,2)), sep="")), 
          aes(x = as.factor(audience_size), text = text)) + 
-    geom_line(mapping = aes(y = lift_needed, group = as.factor(test_proportion), color = as.factor(test_proportion))) + 
-    geom_point(aes(y = lift_needed, group = as.factor(test_proportion), color = as.factor(test_proportion))) +
+    geom_line(mapping = aes(y = lift_needed*100, group = as.factor(percent(test_proportion)), color = as.factor(test_proportion))) + 
+    geom_point(aes(y = lift_needed*100, group = as.factor(percent(test_proportion)), color = as.factor(test_proportion))) +
     xlab("Total Audience Size") + 
-    ylab("Lift Needed") +
-    labs(color = "Test Proportion")
+    ylab("Lift Needed (%)") +
+    ggtitle("Test Design Options") +
+    labs(color = "Test Prop.")
 
 plotly_lift_plot <- ggplotly(lift_plot, tooltip="text")
 
 plotly_lift_plot
 
-api_create(plotly_lift_plot, filename = "r-docs-ab-lift-plot")
+#api_create(plotly_lift_plot, filename = "r-docs-ab-lift-plot")
 
-import chart_studio.tools as tls
-tls.get_embed('https://plot.ly/~elizabethts/9/') #change to your url
+#import chart_studio.tools as tls
+#tls.get_embed('https://plot.ly/~elizabethts/9/') #change to your url
 
 ```
 
@@ -196,9 +201,12 @@ calculations2 <- setup2 %>%
     select(-h_power)
 options(scipen = 99)
 lift_plot2 <- ggplot(data = calculations2 %>%
-           mutate(text = paste("Audience Size: ", audience_size, "\nTest Proportion: ",  test_proportion,  
-                               "\nTest Audience: ", test_n, "\nControl Audience: ",  control_n, 
-                               "\nBaseline Response: ", baseline_rate, "\nResponse Rate Needed: ", round(test_rate,4),
+           mutate(text = paste("Audience Size: ", audience_size, 
+                               "\nTest Proportion: ",  test_proportion,  
+                               "\nTest Audience: ", test_n, 
+                               "\nControl Audience: ",  control_n, 
+                               "\nBaseline Response: ", baseline_rate, 
+                               "\nResponse Rate Needed: ", round(test_rate,4),
                                "\nLift Needed: ", round(lift_needed,4), sep="")), 
          aes(x = audience_size, text = text)) + 
     geom_line(mapping = aes(y = lift_needed, group = as.factor(baseline_rate), color = as.factor(baseline_rate))) + 
