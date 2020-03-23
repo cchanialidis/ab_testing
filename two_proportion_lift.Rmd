@@ -166,7 +166,7 @@ plotly_lift_plot <- ggplotly(lift_plot, tooltip="text")
 
 plotly_lift_plot
 
-#api_create(plotly_lift_plot, filename = "r-docs-ab-lift-plot")
+api_create(plotly_lift_plot, filename = "r-docs-ab-lift-plot")
 
 #import chart_studio.tools as tls
 #tls.get_embed('https://plot.ly/~elizabethts/9/') #change to your url
@@ -201,19 +201,20 @@ calculations2 <- setup2 %>%
     select(-h_power)
 options(scipen = 99)
 lift_plot2 <- ggplot(data = calculations2 %>%
-           mutate(text = paste("Audience Size: ", audience_size, 
-                               "\nTest Proportion: ",  test_proportion,  
-                               "\nTest Audience: ", test_n, 
-                               "\nControl Audience: ",  control_n, 
-                               "\nBaseline Response: ", baseline_rate, 
-                               "\nResponse Rate Needed: ", round(test_rate,4),
-                               "\nLift Needed: ", round(lift_needed,4), sep="")), 
+           mutate(text = paste("Audience Size: ", comma(audience_size), 
+                               "\nTest Proportion: ",  percent(test_proportion),  
+                               "\nTest Audience: ", comma(test_n), 
+                               "\nControl Audience: ",  comma(control_n), 
+                               "\nBaseline Response: ", percent(baseline_rate), 
+                               "\nResponse Rate Needed: ", percent(test_rate),
+                               "\nLift Needed: ", percent(lift_needed), sep="")), 
          aes(x = audience_size, text = text)) + 
-    geom_line(mapping = aes(y = lift_needed, group = as.factor(baseline_rate), color = as.factor(baseline_rate))) + 
-    geom_point(aes(y = lift_needed, group = as.factor(baseline_rate), color = as.factor(baseline_rate))) +
+    geom_line(mapping = aes(y = lift_needed*100, group = as.factor(baseline_rate), color = as.factor(baseline_rate))) + 
+    geom_point(aes(y = lift_needed*100, group = as.factor(baseline_rate), color = as.factor(baseline_rate))) +
     scale_x_continuous(name = "Total Audience Size", breaks=seq(0,100000,10000)) +
-    ylab("Lift Needed") +
-    labs(color = "Baseline Rates")
+    ylab("Lift Needed (%)") +
+    ggtitle("Full Range of Test Design Options") +
+    labs(color = "Baseline (%)")
 plotly_lift_plot2 <- ggplotly(lift_plot2, tooltip="text")
 plotly_lift_plot2
 
